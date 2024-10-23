@@ -1,4 +1,5 @@
 spring:
   profiles:
     active:
-      - dev # 기본 활성화 프로파일을 dev로 설정
+      - dev #???? ??? ??
+
