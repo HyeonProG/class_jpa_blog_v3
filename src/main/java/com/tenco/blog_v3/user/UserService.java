@@ -4,6 +4,7 @@ package com.tenco.blog_v3.user;
 import com.tenco.blog_v3.common.errors.Exception400;
 import com.tenco.blog_v3.common.errors.Exception401;
 import com.tenco.blog_v3.common.errors.Exception404;
+import com.tenco.blog_v3.common.utils.JwtUtil;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -40,11 +41,13 @@ public class UserService {
      *  로그인 서비스
      *
      */
-    public User signIn(UserRequest.LoginDTO reqDTO) {
+    public String signIn(UserRequest.LoginDTO reqDTO) {
         User seessionUser = userJPARepository
                 .findByUsernameAndPassword(reqDTO.getUsername(), reqDTO.getPassword())
                 .orElseThrow( () -> new Exception401("인증되지 않았습니다"));
-        return seessionUser;
+
+
+        return JwtUtil.create(seessionUser);
     }
 
     /**
@@ -68,7 +71,7 @@ public class UserService {
      * @throws Exception404 사용자를 찾을 수 없는 경우 발생
      */
     @Transactional // 트랜잭션 관리
-    public User updateUser(int id, UserRequest.UpdateDTO reqDTO){
+    public UserResponse.DTO updateUser(int id, UserRequest.UpdateDTO reqDTO){
         // 1. 사용자 조회 및 예외 처리
         User user = userJPARepository.findById(id)
                 .orElseThrow(() -> new Exception404("회원정보를 찾을 수 없습니다"));
@@ -78,7 +81,7 @@ public class UserService {
         user.setEmail(reqDTO.getEmail());
 
         // 더티 체킹을 통해 변경 사항이 자동으로 반영됩니다.
-        return user;
+        return new UserResponse.DTO(user);
     }
 
 }

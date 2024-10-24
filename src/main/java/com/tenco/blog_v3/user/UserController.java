@@ -1,6 +1,11 @@
 package com.tenco.blog_v3.user;
 
+import com.tenco.blog_v3.common.errors.Exception401;
+import com.tenco.blog_v3.common.errors.Exception403;
 import com.tenco.blog_v3.common.utils.ApiUtil;
+import com.tenco.blog_v3.common.utils.Define;
+import com.tenco.blog_v3.common.utils.JwtUtil;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,22 +24,37 @@ public class UserController {
     /**
      * 회원 정보 수정
      *
-
      */
     @PutMapping("/api/users/{id}")
-    public String update(@RequestBody UserRequest.UpdateDTO updateDTO) {
-//        User sessionUser = (User) session.getAttribute("sessionUser");
-//        if (sessionUser == null) {
-//            return "redirect:/login-form";
-//        }
-//        User updatedUser = userService.updateUser(sessionUser.getId(), reqDTO);
-//        // 세션 정보 동기화 처리
-//        session.setAttribute("sessionUser", updatedUser);
-        return "redirect:/";
+    public ResponseEntity<?> update(@PathVariable(name = "id") Integer id, @RequestBody UserRequest.UpdateDTO reqDTO, HttpServletRequest request) {
+        // 헤더에 있는 JWT 토큰을 가져오기
+        // 토큰에서 사용자 정보 추출
+        // 사용자 정보 수정 로직 사용
+
+        String authorizationHeader = request.getHeader(Define.AUTHORIZATION);
+        if (authorizationHeader == null || !authorizationHeader.startsWith(Define.BEARER)) {
+            throw new Exception401("인증 정보가 유효하지 않습니다.");
+        }
+        
+        // Bearer 문자열과 공백 한칸 제거 처리
+        String token = authorizationHeader.replace(Define.BEARER, "");
+        User sessionUser = JwtUtil.verify(token);
+        if (sessionUser == null) {
+            throw new Exception401("인증 토큰이 유효하지 않습니다.");
+        }
+
+        if (sessionUser.getId() != id) {
+            throw new Exception403("해당 사용자를 수정할 권한이 없습니다.");
+        }
+        
+        // 서비스에 사용자 정보 수정 요청
+        UserResponse.DTO resDTO = userService.updateUser(id, reqDTO);
+
+        return ResponseEntity.ok(new ApiUtil<>(resDTO));
     }
 
 
-    
+
     // @ResponseBody // 데이터 반환
     @PostMapping("/join")
     public ResponseEntity<ApiUtil<UserResponse.DTO>> join(UserRequest.JoinDTO reqDTO) {
@@ -52,9 +72,13 @@ public class UserController {
      * @return
      */
     @PostMapping("/login")
-    public String login() {
+    public ResponseEntity<ApiUtil<UserResponse.DTO>> login(@RequestBody UserRequest.LoginDTO reqDto) {
 
-        return "";
+        // 사용자가 던진 값을 받아서 DB 에서 사용자 정보 확인
+        String jwt = userService.signIn(reqDto);
+
+        return ResponseEntity.ok().header(Define.AUTHORIZATION, Define.BEARER + jwt)
+                .body(new ApiUtil<>(null));
     }
 
     @GetMapping("/logout")
