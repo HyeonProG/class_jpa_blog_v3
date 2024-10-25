@@ -1,10 +1,14 @@
 package com.tenco.blog_v3.common.config;
 
+import com.auth0.jwt.exceptions.JWTDecodeException;
+import com.auth0.jwt.exceptions.TokenExpiredException;
 import com.tenco.blog_v3.common.errors.Exception401;
+import com.tenco.blog_v3.common.errors.Exception500;
+import com.tenco.blog_v3.common.utils.Define;
+import com.tenco.blog_v3.common.utils.JwtUtil;
 import com.tenco.blog_v3.user.User;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
 import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.ModelAndView;
 
@@ -21,20 +25,24 @@ public class LoginInterceptor implements HandlerInterceptor {
      */
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
-        System.out.println("LoginInterceptor preHandle 실행");
-        // 로그인 여부 판단
-        HttpSession session = request.getSession(false); // 기존 세션이 없다면 null 반환 한다.
-        if(session == null) {
-            throw new Exception401("로그인이 필요 합니다");
+        String jwt = request.getHeader(Define.AUTHORIZATION);
+        if (jwt == null || !jwt.startsWith(Define.BEARER)) {
+            throw new Exception401("JWT 토큰을 전달해 주세요.");
+        }
+        jwt = jwt.replace(Define.BEARER, "");
+        try {
+            User sessionUser = JwtUtil.verify(jwt);
+            request.setAttribute(Define.SESSION_USER, sessionUser);
+            return true;
+
+        } catch (TokenExpiredException e) {
+            throw new Exception401("토큰 만료 시간이 지났습니다. 다시 로그인 하세요.");
+        } catch (JWTDecodeException e) {
+            throw new Exception401("유효하지 않은 토큰입니다.");
+        } catch (Exception e) {
+            throw new Exception500("서버 오류 : " + e.getMessage());
         }
 
-        // 키 - 값  --> 세션 메모리지에 저장 방식은 map 구조 저장 (sessionUser) 문자열 사용 중
-        User sessionUser =  (User) session.getAttribute("sessionUser");
-        if(sessionUser == null) {
-            throw new Exception401("로그인이 필요 합니다");
-        }
-        // return false <- 이면 컨트롤러로 들어가지 않는다.
-        return true;
     }
 
     /**
